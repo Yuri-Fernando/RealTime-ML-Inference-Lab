@@ -1,0 +1,91 @@
+{
+  "title": "RealTime-ML-Inference-Lab",
+  "uid": "rtml-inference-lab",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request latency (P50 / P95 / P99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(rtml_request_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rtml_request_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(rtml_request_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "title": "Throughput (requests/sec by outcome)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(rtml_requests_total[1m])) by (outcome)",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Cache hit rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(rtml_cache_events_total{result=\"hit\"}[1m])) / sum(rate(rtml_cache_events_total[1m]))",
+          "legendFormat": "hit rate"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "title": "Batch size (P50 / P95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(rtml_batch_size_bucket[1m])) by (le))",
+          "legendFormat": "p50 batch size"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rtml_batch_size_bucket[1m])) by (le))",
+          "legendFormat": "p95 batch size"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Queue depth (in-flight requests)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "rtml_queue_depth", "legendFormat": "queue depth" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Forward passes vs requests (batching efficiency)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "expr": "sum(rate(rtml_forward_passes_total[1m]))", "legendFormat": "forward passes/s" },
+        { "expr": "sum(rate(rtml_requests_total[1m]))", "legendFormat": "requests/s" }
+      ]
+    }
+  ]
+}
