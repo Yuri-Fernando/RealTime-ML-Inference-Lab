@@ -1,0 +1,34 @@
+{
+  "status": "success",
+  "data": {
+    "activeTargets": [
+      {
+        "discoveredLabels": {
+          "__address__": "host.docker.internal:8000",
+          "__metrics_path__": "/metrics",
+          "__scheme__": "http",
+          "__scrape_interval__": "5s",
+          "__scrape_timeout__": "5s",
+          "job": "realtime-ml-inference-lab"
+        },
+        "labels": {
+          "instance": "host.docker.internal:8000",
+          "job": "realtime-ml-inference-lab"
+        },
+        "scrapePool": "realtime-ml-inference-lab",
+        "scrapeUrl": "http://host.docker.internal:8000/metrics",
+        "globalUrl": "http://host.docker.internal:8000/metrics",
+        "lastError": "",
+        "lastScrape": "2026-10-08T17:08:33.562590073Z",
+        "lastScrapeDuration": 0.006597198,
+        "health": "up",
+        "scrapeInterval": "5s",
+        "scrapeTimeout": "5s"
+      }
+    ],
+    "droppedTargets": [],
+    "droppedTargetCounts": {
+      "realtime-ml-inference-lab": 0
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": 1,
+  "uid": "PBFA97CFB590B2093",
+  "orgId": 1,
+  "name": "Prometheus",
+  "type": "prometheus",
+  "typeName": "Prometheus",
+  "typeLogoUrl": "public/app/plugins/datasource/prometheus/img/prometheus_logo.svg",
+  "access": "proxy",
+  "url": "http://prometheus:9090",
+  "user": "",
+  "database": "",
+  "basicAuth": false,
+  "isDefault": true,
+  "jsonData": {},
+  "readOnly": true
+}

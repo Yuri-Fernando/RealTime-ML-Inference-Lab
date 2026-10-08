@@ -14,14 +14,27 @@ By default each request carries a different random input (worst case for
 the cache: every request is a forward pass, bounded only by batching). Pass
 --cache-friendly to reuse a small pool of inputs and exercise the cache hit
 path instead.
+
+Concurrency sweep (capacity planning):
+    python loadtest/load_test.py --sweep 1,2,4,8,16,32,64 --requests-per-level 300
+
+Runs the SAME measured load test at each concurrency level in sequence
+against the same running service instance, and writes a single
+machine-generated report (JSON + Markdown) to loadtest/reports/ with
+P50/P95/P99/throughput per level and the saturation point actually observed
+(first level where P95 latency grows disproportionately and/or error rate
+rises) — not a guessed number. This is real per-hardware capacity planning
+for THIS model/service/GPU, not a generic claim.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import random
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import httpx
 
@@ -139,6 +152,163 @@ async def run_load_test(
     return LoadTestReport(total_requests=total_requests, duration_s=duration_s, results=results)
 
 
+@dataclass
+class SweepLevelResult:
+    concurrency: int
+    total_requests: int
+    duration_s: float
+    throughput_rps: float
+    error_rate: float
+    p50_ms: float
+    p95_ms: float
+    p99_ms: float
+
+    @classmethod
+    def from_report(cls, concurrency: int, report: LoadTestReport) -> "SweepLevelResult":
+        error_rate = (
+            len(report.errors) / report.total_requests if report.total_requests else float("nan")
+        )
+        return cls(
+            concurrency=concurrency,
+            total_requests=report.total_requests,
+            duration_s=report.duration_s,
+            throughput_rps=report.throughput_rps(),
+            error_rate=error_rate,
+            p50_ms=report.percentile(50),
+            p95_ms=report.percentile(95),
+            p99_ms=report.percentile(99),
+        )
+
+
+def _find_saturation_point(levels: list[SweepLevelResult]) -> "int | None":
+    """Identify the first concurrency level where the system shows real
+    saturation, using two simple, measured (not guessed) signals:
+
+      1. error_rate > 1% at that level (backpressure/429s/timeouts kicking
+         in for real), OR
+      2. P95 latency more than DOUBLES relative to the previous level while
+         throughput stops growing proportionally (classic queueing-delay
+         knee: latency balloons, throughput plateaus).
+
+    Returns the concurrency value of the first level matching either
+    condition, or None if no level in the sweep saturated the service
+    (i.e. the whole tested range stayed within the stable region).
+    """
+    for i, level in enumerate(levels):
+        if level.error_rate > 0.01:
+            return level.concurrency
+        if i > 0:
+            prev = levels[i - 1]
+            if prev.p95_ms > 0 and level.p95_ms > prev.p95_ms * 2:
+                throughput_growth = (
+                    (level.throughput_rps - prev.throughput_rps) / prev.throughput_rps
+                    if prev.throughput_rps > 0
+                    else float("inf")
+                )
+                if throughput_growth < 0.15:  # throughput basically stopped scaling
+                    return level.concurrency
+    return None
+
+
+async def run_concurrency_sweep(
+    base_url: str,
+    levels: list[int],
+    requests_per_level: int,
+    input_dim: int,
+    cache_friendly: bool,
+) -> list[SweepLevelResult]:
+    """Run the same real load test at each concurrency level, in sequence,
+    against the same running service instance. Sequential (not parallel)
+    sweeping is deliberate: each level needs a clean measurement window,
+    and running levels concurrently would conflate their load."""
+    results: list[SweepLevelResult] = []
+    for concurrency in levels:
+        report = await run_load_test(
+            base_url=base_url,
+            total_requests=requests_per_level,
+            concurrency=concurrency,
+            input_dim=input_dim,
+            cache_friendly=cache_friendly,
+        )
+        results.append(SweepLevelResult.from_report(concurrency, report))
+        # Brief pause between levels so one level's tail requests don't
+        # bleed into the next level's measurement window.
+        await asyncio.sleep(0.5)
+    return results
+
+
+def _write_sweep_report(
+    levels: list[SweepLevelResult],
+    saturation_point: "int | None",
+    output_dir: Path,
+    input_dim: int,
+    requests_per_level: int,
+) -> tuple[Path, Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+
+    json_path = output_dir / f"capacity-sweep-{timestamp}.json"
+    json_payload = {
+        "timestamp": timestamp,
+        "input_dim": input_dim,
+        "requests_per_level": requests_per_level,
+        "saturation_point_concurrency": saturation_point,
+        "levels": [
+            {
+                "concurrency": lvl.concurrency,
+                "total_requests": lvl.total_requests,
+                "duration_s": lvl.duration_s,
+                "throughput_rps": lvl.throughput_rps,
+                "error_rate": lvl.error_rate,
+                "p50_ms": lvl.p50_ms,
+                "p95_ms": lvl.p95_ms,
+                "p99_ms": lvl.p99_ms,
+            }
+            for lvl in levels
+        ],
+    }
+    json_path.write_text(json.dumps(json_payload, indent=2), encoding="utf-8")
+
+    md_path = output_dir / f"capacity-sweep-{timestamp}.md"
+    md_lines = [
+        f"# Capacity sweep report — {timestamp}",
+        "",
+        "Real measured load test run at each concurrency level in sequence "
+        "against this machine's GPU/CPU and this model. Not estimated, not "
+        "extrapolated — every row below comes from an actual run of "
+        "`loadtest/load_test.py`.",
+        "",
+        f"- Requests per level: {requests_per_level}",
+        f"- Input dim: {input_dim}",
+        "",
+        "| Concurrency | Requests | Duration (s) | Throughput (req/s) | Error rate | P50 (ms) | P95 (ms) | P99 (ms) |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for lvl in levels:
+        md_lines.append(
+            f"| {lvl.concurrency} | {lvl.total_requests} | {lvl.duration_s:.2f} | "
+            f"{lvl.throughput_rps:.2f} | {lvl.error_rate * 100:.1f}% | "
+            f"{lvl.p50_ms:.1f} | {lvl.p95_ms:.1f} | {lvl.p99_ms:.1f} |"
+        )
+    md_lines.append("")
+    if saturation_point is not None:
+        md_lines.append(
+            f"**Saturation point (measured): concurrency = {saturation_point}.** "
+            "This is the first tested level where either the error rate exceeded "
+            "1% or P95 latency more than doubled relative to the previous level "
+            "while throughput stopped growing — i.e. the queueing-delay knee was "
+            "observed directly in this run, not inferred from a formula."
+        )
+    else:
+        md_lines.append(
+            "**No saturation point observed within the tested concurrency range.** "
+            "The service stayed in its stable region for every level tested here; "
+            "a real saturation point may exist at a higher, untested concurrency."
+        )
+    md_path.write_text("\n".join(md_lines), encoding="utf-8")
+    return json_path, md_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Load test the inference service")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
@@ -150,7 +320,61 @@ def main() -> None:
         action="store_true",
         help="Reuse a small pool of inputs to exercise cache hits instead of worst-case misses",
     )
+    parser.add_argument(
+        "--sweep",
+        type=str,
+        default=None,
+        help="Comma-separated concurrency levels to run a capacity sweep, "
+        "e.g. --sweep 1,2,4,8,16,32,64",
+    )
+    parser.add_argument(
+        "--requests-per-level",
+        type=int,
+        default=300,
+        help="Requests to send at each concurrency level during a --sweep run",
+    )
+    parser.add_argument(
+        "--report-dir",
+        type=str,
+        default=str(Path(__file__).parent / "reports"),
+        help="Directory to write capacity-sweep JSON/Markdown reports into",
+    )
     args = parser.parse_args()
+
+    if args.sweep:
+        levels = [int(x.strip()) for x in args.sweep.split(",") if x.strip()]
+        print(f"=== Concurrency sweep (measured, not estimated): {levels} ===")
+        sweep_results = asyncio.run(
+            run_concurrency_sweep(
+                base_url=args.base_url,
+                levels=levels,
+                requests_per_level=args.requests_per_level,
+                input_dim=args.input_dim,
+                cache_friendly=args.cache_friendly,
+            )
+        )
+        for lvl in sweep_results:
+            print(
+                f"concurrency={lvl.concurrency:>4}  "
+                f"throughput={lvl.throughput_rps:7.2f} req/s  "
+                f"p50={lvl.p50_ms:8.2f} ms  p95={lvl.p95_ms:8.2f} ms  p99={lvl.p99_ms:8.2f} ms  "
+                f"errors={lvl.error_rate * 100:5.1f}%"
+            )
+        saturation = _find_saturation_point(sweep_results)
+        if saturation is not None:
+            print(f"\nMeasured saturation point: concurrency = {saturation}")
+        else:
+            print("\nNo saturation point observed within the tested range.")
+
+        json_path, md_path = _write_sweep_report(
+            sweep_results,
+            saturation,
+            Path(args.report_dir),
+            input_dim=args.input_dim,
+            requests_per_level=args.requests_per_level,
+        )
+        print(f"\nReport written to:\n  {json_path}\n  {md_path}")
+        return
 
     report = asyncio.run(
         run_load_test(

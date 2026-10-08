@@ -1,0 +1,78 @@
+{
+  "timestamp": "20261008-141215",
+  "input_dim": 3072,
+  "requests_per_level": 300,
+  "saturation_point_concurrency": 8,
+  "levels": [
+    {
+      "concurrency": 1,
+      "total_requests": 300,
+      "duration_s": 3.9208393999979307,
+      "throughput_rps": 76.514228050289,
+      "error_rate": 0.0,
+      "p50_ms": 12.617349999345606,
+      "p95_ms": 14.997475000564009,
+      "p99_ms": 16.793014000031686
+    },
+    {
+      "concurrency": 2,
+      "total_requests": 300,
+      "duration_s": 3.43476930000179,
+      "throughput_rps": 87.34211057489179,
+      "error_rate": 0.0,
+      "p50_ms": 21.68424999945273,
+      "p95_ms": 24.380310001470207,
+      "p99_ms": 29.694091999263016
+    },
+    {
+      "concurrency": 4,
+      "total_requests": 300,
+      "duration_s": 2.578104500000336,
+      "throughput_rps": 116.36456163819616,
+      "error_rate": 0.0,
+      "p50_ms": 33.55650000048627,
+      "p95_ms": 42.32866500096861,
+      "p99_ms": 45.08883799760951
+    },
+    {
+      "concurrency": 8,
+      "total_requests": 300,
+      "duration_s": 2.518766700002743,
+      "throughput_rps": 119.10591004703741,
+      "error_rate": 0.0,
+      "p50_ms": 64.39285000124073,
+      "p95_ms": 89.47988499785426,
+      "p99_ms": 159.3143119974411
+    },
+    {
+      "concurrency": 16,
+      "total_requests": 300,
+      "duration_s": 5.613127299999178,
+      "throughput_rps": 53.44614222450361,
+      "error_rate": 0.0,
+      "p50_ms": 205.6943500010675,
+      "p95_ms": 783.7324799989801,
+      "p99_ms": 1149.4478369997157
+    },
+    {
+      "concurrency": 32,
+      "total_requests": 300,
+      "duration_s": 4.7298818999988725,
+      "throughput_rps": 63.42653079775026,
+      "error_rate": 0.0,
+      "p50_ms": 372.84195000029285,
+      "p95_ms": 1223.1420100013577,
+      "p99_ms": 1707.085536999365
+    },
+    {
+      "concurrency": 64,
+      "total_requests": 300,
+      "duration_s": 4.643773100000544,
+      "throughput_rps": 64.60263960785785,
+      "error_rate": 0.0,
+      "p50_ms": 975.8550000005926,
+      "p95_ms": 1425.3241499998694,
+      "p99_ms": 1467.376577998475
+    }
+  ]
+}

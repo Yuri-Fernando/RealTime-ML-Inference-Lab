@@ -86,6 +86,30 @@
         { "expr": "sum(rate(rtml_forward_passes_total[1m]))", "legendFormat": "forward passes/s" },
         { "expr": "sum(rate(rtml_requests_total[1m]))", "legendFormat": "requests/s" }
       ]
+    },
+    {
+      "id": 7,
+      "title": "GPU memory (allocated / reserved, real torch.cuda readings)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        { "expr": "rtml_gpu_memory_allocated_bytes", "legendFormat": "allocated" },
+        { "expr": "rtml_gpu_memory_reserved_bytes", "legendFormat": "reserved" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+    },
+    {
+      "id": 8,
+      "title": "GPU utilization % (NVML, real) and cancellations/sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        { "expr": "rtml_gpu_utilization_percent", "legendFormat": "gpu utilization %" },
+        {
+          "expr": "sum(rate(rtml_cancellations_total[1m])) by (reason)",
+          "legendFormat": "cancellations/s ({{reason}})"
+        }
+      ]
     }
   ]
 }
