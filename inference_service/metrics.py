@@ -50,6 +50,41 @@ FORWARD_PASSES_TOTAL = Counter(
     registry=registry,
 )
 
+CANCELLATIONS_TOTAL = Counter(
+    "rtml_cancellations_total",
+    "Total requests cancelled before completion (client disconnect or explicit /cancel)",
+    ["reason"],  # client_disconnect | explicit
+    registry=registry,
+)
+
+# GPU telemetry (real values read from torch.cuda / pynvml at scrape time via
+# a callback registered in app.py — see inference_service/gpu_telemetry.py).
+# These are Gauges updated right before each /metrics scrape, not estimated.
+GPU_MEMORY_ALLOCATED_BYTES = Gauge(
+    "rtml_gpu_memory_allocated_bytes",
+    "torch.cuda.memory_allocated() for the serving device (0 on CPU-only runs)",
+    registry=registry,
+)
+
+GPU_MEMORY_RESERVED_BYTES = Gauge(
+    "rtml_gpu_memory_reserved_bytes",
+    "torch.cuda.memory_reserved() for the serving device (0 on CPU-only runs)",
+    registry=registry,
+)
+
+GPU_UTILIZATION_PERCENT = Gauge(
+    "rtml_gpu_utilization_percent",
+    "GPU utilization percent read via torch.cuda.utilization() (nvidia-ml-py backed); "
+    "absent/unset if unavailable (no GPU, or driver query failed)",
+    registry=registry,
+)
+
+GPU_AVAILABLE = Gauge(
+    "rtml_gpu_available",
+    "1 if a CUDA GPU is in use by this process, 0 if running on CPU",
+    registry=registry,
+)
+
 
 def render_latest() -> bytes:
     return generate_latest(registry)

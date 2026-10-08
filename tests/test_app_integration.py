@@ -6,10 +6,12 @@ app lifespan (so the DynamicBatcher background task really starts/stops)
 and the real TinyCNN model — nothing here is mocked.
 """
 import asyncio
+import time
 
 import pytest
 from starlette.testclient import TestClient
 
+from inference_service import metrics
 from inference_service.app import app, batcher
 from inference_service.cache import result_cache
 from inference_service.config import settings
@@ -104,3 +106,51 @@ def test_backpressure_returns_429_when_queue_saturated(monkeypatch):
         resp = client.post("/infer", json={"input": _valid_input()})
         assert resp.status_code == 429
     monkeypatch.setattr(batcher, "max_queue_depth", settings.MAX_QUEUE_DEPTH)
+
+
+def test_infer_response_includes_request_id():
+    with TestClient(app) as client:
+        resp = client.post("/infer", json={"input": _valid_input()})
+        assert resp.status_code == 200
+        assert isinstance(resp.json()["request_id"], str)
+        assert len(resp.json()["request_id"]) > 0
+
+
+def test_cancel_unknown_request_id_returns_cancelled_false():
+    with TestClient(app) as client:
+        resp = client.post("/cancel/does-not-exist")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["request_id"] == "does-not-exist"
+        assert body["cancelled"] is False
+
+
+def test_websocket_disconnect_cancels_inflight_request(monkeypatch):
+    """Real end-to-end proof that a WS client disconnecting mid-request
+    triggers real cancellation: widen the batching window so the request
+    is still queued when we close the socket, then assert the
+    `rtml_cancellations_total{reason="client_disconnect"}` counter moved."""
+    monkeypatch.setattr(batcher, "max_wait_ms", 2000)
+    try:
+        with TestClient(app) as client:
+            before = metrics.CANCELLATIONS_TOTAL.labels(reason="client_disconnect")._value.get()
+            with client.websocket_connect("/ws/infer") as ws:
+                ws.send_json({"input": _valid_input(), "request_id": "ws-cancel-1"})
+                # Deliberately close without waiting for a response — the
+                # server-side handler should observe the disconnect while
+                # the request is still sitting in the (slow) batch window.
+            time.sleep(0.3)
+            after = metrics.CANCELLATIONS_TOTAL.labels(reason="client_disconnect")._value.get()
+            assert after > before
+    finally:
+        monkeypatch.setattr(batcher, "max_wait_ms", settings.MAX_BATCH_WAIT_MS)
+
+
+def test_metrics_endpoint_exposes_gpu_telemetry_and_cancellation_metrics():
+    with TestClient(app) as client:
+        resp = client.get("/metrics")
+        assert resp.status_code == 200
+        text = resp.text
+        assert "rtml_gpu_available" in text
+        assert "rtml_gpu_memory_allocated_bytes" in text
+        assert "rtml_cancellations_total" in text
