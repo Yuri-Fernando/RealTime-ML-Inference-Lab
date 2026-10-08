@@ -65,3 +65,125 @@ infraestrutura de inferência de ML em tempo real/GPU. Escopo desta sessão: MVP
   mantida consistente com a régua de honestidade do restante do portfólio.
 - Cache key: hash SHA-256 do vetor de input arredondado (6 casas decimais) para
   tolerar ruído de ponto flutuante entre serializações JSON idênticas.
+
+---
+
+# Worklog — Sessão de aprofundamento (auditoria de maturidade)
+
+**Data:** 2026-10-08
+
+## Contexto
+
+Especificação mais madura fornecida pelo usuário em dois arquivos fora do repo
+(`03_RealTime-ML-Inference-Lab.md`, `RealTime_ML_Inference_Lab_Master_Spec.txt`),
+refinando o escopo original. Tarefa: aprofundar M2/M3/M6/M7 do roadmap (admission
+control explícito, cancelamento real, telemetria GPU real, observability
+executada de verdade, load test com concurrency sweep) sem tentar M4/M5
+(vLLM/Triton reais) nem V2/V3 (fora de escopo explícito).
+
+Working tree confirmado limpo no início (2 commits já existiam da sessão anterior).
+
+## O que foi feito, em ordem
+
+1. Lidos README/CHANGELOG/ROADMAP/WORKLOG existentes + as duas specs novas na
+   íntegra (seções "01 — PROJECT IDENTITY AND BOUNDARIES" e "SUCCESS DEFINITION"/
+   "NON-GOALS FOR MVP" do master spec, conforme instruído, mais o resto como
+   referência).
+2. **Admission control** (`inference_service/admission.py`): extraída a decisão
+   "capacity? -> admit : reject" do `DynamicBatcher.submit()` para
+   `AdmissionController.decide(in_flight)`, função pura sem asyncio/fila/modelo.
+   `DynamicBatcher` passou a delegar a ela; `max_queue_depth` virou uma property
+   que repassa para o controller (mantendo compatibilidade com testes/código que
+   já faziam `batcher.max_queue_depth = N`).
+3. **Cancelamento real** (`inference_service/batching.py`): `PendingRequest`
+   ganhou `request_id` e flag `cancelled`; `DynamicBatcher.cancel(request_id)`
+   marca a flag e resolve o Future com `CancelledError` imediatamente;
+   `_process_batch` filtra itens cancelados ANTES de montar o tensor — nunca
+   chegam ao `model_backend.infer_batch(...)`. Nova exceção de domínio
+   `RequestCancelledError` distingue "este request foi cancelado por nós" de
+   uma cancelação externa genuína da task (para não engolir cancelamentos
+   legítimos do asyncio). Endpoint `POST /cancel/{request_id}` adicionado;
+   `WS /ws/infer` reescrito para correr a inferência contra um watcher de
+   desconexão real (`websocket.receive()` em loop até `"websocket.disconnect"`),
+   cancelando o request em voo se o cliente desconectar antes da resposta.
+4. **Telemetria GPU** (`inference_service/gpu_telemetry.py`): testado
+   `torch.cuda.memory_allocated()`/`memory_reserved()` (funcionam direto) e
+   `torch.cuda.utilization()` — **falhou na primeira tentativa** com
+   `RuntimeError: nvidia-ml-py does not seem to be installed`, confirmado antes
+   de qualquer correção. Instalado `nvidia-ml-py` via pip no Python canônico;
+   reconfirmado que `torch.cuda.utilization()` passou a retornar um valor real
+   (7%, depois 25% sob carga simulada). Métricas novas no `/metrics`:
+   `rtml_gpu_available`, `rtml_gpu_memory_allocated_bytes`,
+   `rtml_gpu_memory_reserved_bytes`, `rtml_gpu_utilization_percent`,
+   `rtml_cancellations_total{reason}`. Lidas a cada scrape, nunca estimadas.
+5. Testes novos: `tests/test_admission.py` (7), `tests/test_cancellation.py` (6),
+   mais 4 testes de integração em `tests/test_app_integration.py` (request_id,
+   `/cancel` desconhecido, telemetria no `/metrics`, cancelamento real via
+   desconexão de WebSocket fechando a conexão de verdade e lendo o contador
+   Prometheus depois). Suite completa: 23 → 40 testes, todos passando
+   (confirmado rodando `pytest -q` mais de uma vez durante a sessão).
+6. **Observability — tentativa real de rodar via Docker**:
+   - `docker --version` / `docker compose version` OK, mas `docker info` falhou
+     (engine do Docker Desktop não estava rodando). Iniciado
+     `Docker Desktop.exe` manualmente; engine ficou pronto em ~5s.
+   - Serviço real iniciado via `uvicorn` (bind `0.0.0.0:8000`, confirmado
+     `device: "cuda"` em `/health`), tráfego real gerado via PowerShell
+     (`Invoke-RestMethod`) para popular métricas antes do scrape.
+   - `docker compose up -d` direto na pasta do repo (dentro do Google Drive
+     Desktop, unidade `G:`) **falhou**: "mount ... not a directory" ao tentar
+     bind-mountar `prometheus.yml` — o filesystem virtual do Google Drive não
+     se comporta como filesystem local para bind mounts (mesma classe de
+     problema documentada em `rules/node-env.md` para `node_modules`).
+   - Contornado copiando os arquivos de config (`docker-compose.yml`,
+     `prometheus/`, `grafana/`) para `C:\tmp\rtml-observability` (fora do
+     Drive) e rodando `docker compose up -d` de lá, apontando para
+     `host.docker.internal:8000`.
+   - Confirmado via API HTTP real do Prometheus: `GET /api/v1/targets` →
+     `health: "up"`; `GET /api/v1/query?query=rtml_gpu_available` → `1`;
+     `rtml_requests_total` e `rtml_gpu_memory_allocated_bytes` com valores
+     reais. Grafana: datasource "Prometheus" provisionado
+     (`http://prometheus:9090`) confirmado via `GET /api/datasources`;
+     dashboard `rtml-inference-lab` confirmado carregado via
+     `GET /api/search?type=dash-db`. Evidência JSON salva em
+     `observability/evidence/` (4 arquivos).
+   - Dois painéis novos adicionados ao dashboard JSON (memória de GPU,
+     utilização de GPU + cancelamentos/s) — não re-verificados visualmente
+     (Grafana já estava parado quando os painéis foram adicionados), mas a
+     sintaxe das queries PromQL segue o mesmo padrão dos painéis já validados.
+   - `docker compose down` ao final para não deixar containers órfãos.
+7. **Load test — concurrency sweep real**: `loadtest/load_test.py` estendido
+   com `--sweep` (níveis separados por vírgula) e `--requests-per-level`,
+   rodando o mesmo teste real sequencialmente em cada nível contra a mesma
+   instância do serviço, com pausa de 0.5s entre níveis. Detecção de saturação
+   (`_find_saturation_point`): erro > 1% OU P95 mais que dobra vs. nível
+   anterior enquanto throughput cresce menos de 15%. Rodado de verdade:
+   `--sweep 1,2,4,8,16,32,64 --requests-per-level 300` contra a GPU real.
+   Resultado medido: throughput sobe de 76→119 req/s entre concorrência 1→8,
+   depois CAI para 53 req/s em concorrência 16 enquanto P95 salta de 89ms para
+   784ms — saturação real identificada em concorrência 8. Relatório JSON+MD
+   escrito em `loadtest/reports/capacity-sweep-20261008-141215.*`.
+8. README/CHANGELOG/ROADMAP atualizados com os achados reais (nova seção
+   "Observability (validado)" no README com a evidência e o contorno do
+   bind-mount; CHANGELOG 0.2.0; ROADMAP com M2/M3/M6/M7 marcados avançados e
+   M4/M5 explicitamente não tentados).
+
+## Decisões técnicas registradas (sessão 2026-10-08)
+
+- `AdmissionController` não possui estado próprio sobre `in_flight` — o
+  `DynamicBatcher` mantém o contador sob lock e apenas consulta a decisão,
+  porque o incremento precisa ser atômico com a decisão (mesma seção crítica).
+  Separar a regra da contagem foi a forma de isolar a regra sem quebrar essa
+  atomicidade.
+- Cancelamento distingue "cancelamos este request de propósito" (gera
+  `RequestCancelledError`, um erro de domínio) de uma cancelação assíncrona
+  genuína da task por outro motivo (deixa `CancelledError` normal propagar) —
+  checando a flag `request.cancelled` antes de converter a exceção.
+- O WebSocket não tenta suportar múltiplas requisições concorrentes na mesma
+  conexão (fora de escopo) — o protocolo continua um request por vez; a
+  corrida implementada é apenas contra desconexão, não contra uma segunda
+  mensagem de input chegando enquanto a primeira está em voo.
+- Observability: a correção de bind-mount via staging local é um padrão já
+  documentado no control plane do usuário (`rules/node-env.md`) para outro
+  problema (npm install) — mesma causa raiz (filesystem virtual do Google
+  Drive Desktop não suporta certas operações nativas do Windows/Docker),
+  aplicada aqui para bind mounts do Docker.
