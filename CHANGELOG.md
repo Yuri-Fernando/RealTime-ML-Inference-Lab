@@ -3,6 +3,64 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.3.0] - 2026-10-21
+
+Geração de texto com backends plugáveis e quantização real medida. O caminho
+histórico (TinyCNN, `inference_service/app.py`) não foi alterado; os 40 testes
+da v0.2.0 continuam passando sem modificação.
+
+### Adicionado
+- `inference_service/backends/`: protocolo `InferenceBackend`/`TextBackend`,
+  `HuggingFaceBackend` (Qwen2.5-0.5B-Instruct em fp32/fp16/bf16/int8/nf4 via
+  bitsandbytes; lote com padding à esquerda, orçamento de tokens e cancelamento
+  por sequência, TTFT, sonda de qualidade), `VLLMBackend` (cliente do servidor
+  vLLM, reaproveita `adapters/triton_vllm/vllm_client.py`) e `create_backend()`
+  por `RTML_BACKEND` (`tinycnn` | `hf` | `vllm`). `TinyCNNBackend` é o
+  `ModelBackend` histórico com outro nome (alias), sem fork.
+- `inference_service/llm_batching.py` (`LLMBatcher`) e `llm_app.py`
+  (`POST /generate`, `/cancel/{id}`, `/quality`, `/health`, `/metrics`):
+  admissão (429), cancelamento real na fila, durante a geração (evento por
+  sequência avaliado a cada passo) e na desconexão do cliente (499), timeout
+  que também aborta a geração, `X-Request-ID` para cancelar por id.
+- `inference_service/llm_metrics.py`: `rtml_llm_*` (latência, TTFT, tokens,
+  tamanho/duração do lote, tokens/s, memória do modelo, pico de VRAM alocada,
+  informação do backend).
+- `loadtest/load_test.py --scenario llm [--max-new-tokens N]`: mede tokens/s e
+  TTFT no mesmo concurrency sweep (relatório JSON/MD com colunas extras).
+  O cenário padrão (`cnn`) é idêntico ao anterior.
+- `benchmarks/run_quant_benchmark.py`: sobe o serviço real por modo, espera a
+  GPU compartilhada ficar ociosa, roda o sweep, amostra `nvidia-smi`, coleta
+  perplexidade e saídas greedy e gera relatório + gráficos; `--resume`,
+  `--attempts`, sinalização de medição contaminada. Resultados:
+  `benchmarks/results/quant-20261021-193218.{json,md}` e PNGs.
+- Observabilidade: job de scrape `realtime-ml-inference-lab-llm` (porta 8100) e
+  `observability/grafana/dashboards/llm-dashboard.json`.
+- `docker-compose.vllm.yml` e `scripts/run_vllm_wsl.sh` (vLLM via Docker com GPU).
+- 54 testes novos (94 no total): `test_backends_factory`, `test_llm_batching`
+  (13), `test_llm_app`, `test_vllm_backend`, `test_hf_backend` (modelo real).
+
+### Corrigido
+- `HuggingFaceBackend`: tokens de padding gerados depois do orçamento de uma
+  sequência eram lidos como EOS genuíno, então `finish_reason` saía `stop` em vez
+  de `length` (pego pelo teste de orçamento por sequência, antes de qualquer
+  benchmark).
+
+### Notas de honestidade
+- **vLLM real: BLOCKED_BY_CONFIGURATION.** `docker run --gpus all` funciona, mas o
+  `docker pull vllm/vllm-openai:latest` concluiu 8 de 40 camadas no limite de 15
+  min; a imagem não ficou disponível. Nenhum benchmark de vLLM real existe.
+- A primeira rodada completa do benchmark foi **contaminada** por outros
+  processos na GPU compartilhada e descartada como comparação (preservada em
+  `benchmarks/results/contaminated-20261021-150837/`, com `NOTA.md`).
+- Uma rodada intermediária morreu no `/quality` do INT8 (conexão encerrada pelo
+  servidor, sem traceback); não reproduziu isoladamente (modelo INT8 em thread
+  principal, em thread secundária e servidor manual funcionaram) e a rodada
+  seguinte passou sem alterações no backend. Causa não identificada — provável
+  interferência de outros processos na GPU; o runner agora registra tentativas e
+  a cauda do log do servidor.
+- Comparar FP32 × FP16 × BF16 por latência/vazão **não é sustentado** por esta
+  medição (uma rodada, 24 requisições por nível, formação de lote variável).
+
 ## [0.2.0] - 2026-10-08
 
 Auditoria/aprofundamento da MVP original contra a spec mais madura fornecida

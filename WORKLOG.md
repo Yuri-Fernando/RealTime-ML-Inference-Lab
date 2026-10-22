@@ -187,3 +187,48 @@ Working tree confirmado limpo no início (2 commits já existiam da sessão ante
   problema (npm install) — mesma causa raiz (filesystem virtual do Google
   Drive Desktop não suporta certas operações nativas do Windows/Docker),
   aplicada aqui para bind mounts do Docker.
+
+---
+
+# Sessão 3 — 2026-10-21 — V0.3: geração de texto e quantização
+
+## Objetivo
+Backends plugáveis (TinyCNN / HuggingFace / vLLM), serviço de geração com o mesmo
+batching/admissão/cancelamento, quantização real (FP32/FP16/BF16/INT8/NF4) medida com o
+mesmo load test, painel Grafana, e uma tentativa limitada de vLLM real.
+
+## Passo a passo
+1. Leitura do repositório (`model.py`, `batching.py`, `app.py`, `metrics.py`, `loadtest/`, adapters).
+   Decisão: **não** mexer no caminho do TinyCNN; criar `llm_app.py`/`llm_batching.py` em paralelo,
+   reaproveitando `AdmissionController` e as exceções do batcher histórico.
+2. Sondagem do ambiente antes de projetar: Qwen2.5-0.5B no cache `Q:\Hugginface`; fp32/fp16/bf16/int8/nf4
+   carregam e geram na RTX 3060 Ti (pesos medidos: 1885/942/942/601/430 MiB). `docker run --gpus all` ok.
+3. Início do `docker pull vllm/vllm-openai` em segundo plano (limite de 15 min).
+4. Implementação: backends, `LLMBatcher`, `llm_app`, métricas, extensão do `load_test.py`.
+5. Testes. 27 verdes no primeiro corte (factory + batcher). O primeiro teste com o modelo real achou um
+   **bug meu**: `finish_reason="stop"` onde devia ser `length` — tokens de padding após o orçamento da
+   sequência eram lidos como EOS. Corrigido (só os primeiros `budget` tokens pertencem à sequência).
+   Um teste meu esperava `cuda:0` e o dispositivo é `cuda`: corrigido o teste, não o código.
+6. **vLLM**: o pull completou 8 de 40 camadas em 15 min (`exit=124`) → BLOCKED_BY_CONFIGURATION. Não repeti.
+7. Benchmark, rodada 1: mostrou baseline de GPU ocioso de 94% e 6–7 GB em uso por **outros processos** e
+   um P95 de 343 s no FP16 → **contaminada**. Preservada em `benchmarks/results/contaminated-20261021-150837/`.
+   O processo do benchmark morreu depois no INT8 (`ReadError` no `/quality`, servidor sem traceback). Reproduzi
+   o INT8 em thread principal, em thread secundária e como servidor manual: tudo passou. Causa não identificada.
+8. Runner endurecido: espera a GPU ficar ociosa, flags de contaminação, tentativas, `--resume`,
+   `PYTHONFAULTHANDLER`. Rodada 2 (limpa): 5 modos concluídos, todos marcados "medição limpa".
+9. Suíte completa na cópia de staging em `D:` (o import de torch a partir do Drive é lento):
+   `94 passed in 164.54s`, 0 pulados.
+
+## Decisões
+- Geração roda em `asyncio.to_thread`: o event loop continua atendendo admissão e cancelamento.
+- Cancelamento durante a geração = `threading.Event` por sequência lido por um `StoppingCriteria`
+  por sequência a cada passo; a sequência para, o lote termina quando todas pararam.
+- vLLM = `supports_batching=False`: o servidor faz o batching contínuo; o cliente só aplica admissão.
+- Sem cache de resultados no caminho LLM (prompts repetidos inflariam o benchmark).
+- Testes e benchmark rodam numa cópia em `D:\Claude Temp\stagingealtime-v03epo`
+  (mesma causa raiz da lição de bind-mount do Drive: filesystem virtual lento/incompatível).
+
+## Pendências
+- vLLM real (baixar a imagem com tempo/rede suficientes e rodar o mesmo sweep).
+- Repetir o benchmark algumas vezes para estimar a variância de FP32/FP16/BF16.
+- TTFT por streaming.
