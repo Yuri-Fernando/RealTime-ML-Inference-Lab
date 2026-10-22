@@ -1,0 +1,42 @@
+# vLLM (servidor OpenAI-compatible) para o VLLMBackend — V0.3
+#
+# O vLLM NÃO roda nativo no Windows. Este compose usa a imagem oficial com GPU
+# via Docker Desktop (WSL2 + NVIDIA Container Toolkit).
+#
+#   docker compose -f docker-compose.vllm.yml up
+#   RTML_BACKEND=vllm RTML_VLLM_BASE_URL=http://127.0.0.1:8001 \
+#     python -m uvicorn inference_service.llm_app:app --port 8100
+#
+# STATUS (honesto): a configuração é real, mas NÃO foi executada de ponta a
+# ponta no ambiente de desenvolvimento — o `docker pull vllm/vllm-openai`
+# (imagem de ~40 camadas) concluiu apenas 8 de 40 camadas no limite de 15 min
+# da tentativa. Veja README (seção vLLM) e WORKLOG. Nenhum número de vLLM real
+# existe neste repositório.
+#
+# Observação de VRAM: a RTX 3060 Ti tem 8 GB; `--gpu-memory-utilization 0.55`
+# deixa folga para o desktop e para outros processos. Ajuste conforme a GPU.
+
+services:
+  vllm:
+    image: vllm/vllm-openai:latest   # fixe um digest/tag ao reproduzir
+    container_name: rtml-vllm
+    ports:
+      - "8001:8000"
+    environment:
+      - HF_HUB_OFFLINE=0
+    volumes:
+      # reutiliza o cache do Hugging Face do host (no Windows: Q:\Hugginface)
+      - ${HF_CACHE_DIR:-~/.cache/huggingface}:/root/.cache/huggingface
+    command: >
+      --model Qwen/Qwen2.5-0.5B-Instruct
+      --dtype float16
+      --max-model-len 2048
+      --gpu-memory-utilization 0.55
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

@@ -7,3 +7,10 @@ scrape_configs:
     static_configs:
       - targets: ["host.docker.internal:8000"]
     metrics_path: /metrics
+
+  # V0.3: serviço de geração (inference_service.llm_app). Suba-o na porta 8100,
+  # por exemplo: RTML_BACKEND=hf RTML_HF_QUANT=nf4 uvicorn inference_service.llm_app:app --port 8100
+  - job_name: "realtime-ml-inference-lab-llm"
+    static_configs:
+      - targets: ["host.docker.internal:8100"]
+    metrics_path: /metrics

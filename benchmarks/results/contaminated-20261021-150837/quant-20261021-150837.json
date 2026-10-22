@@ -1,0 +1,710 @@
+{
+  "meta": {
+    "timestamp": "20261021-150837",
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "sweep": "1,2,4,8,16",
+    "requests_per_level": 24,
+    "max_new_tokens": 32,
+    "max_batch_size": 8,
+    "max_wait_ms": 20.0,
+    "report_concurrency": 8,
+    "quality_reference": "fp32",
+    "git_head": "5ac83c4",
+    "git_dirty": true,
+    "gpu_baseline_mib": 1618.0,
+    "torch": "2.13.0+cu126",
+    "transformers": "5.16.1",
+    "bitsandbytes": "0.50.2",
+    "gpu": "NVIDIA GeForce RTX 3060 Ti",
+    "resumed": true
+  },
+  "runs": [
+    {
+      "mode": "fp32",
+      "status": "ok",
+      "gpu_baseline": [
+        28.4,
+        1621
+      ],
+      "gpu_idle": {
+        "util_mean_pct": 28.4,
+        "mem_used_mib": 1621
+      },
+      "startup_seconds": 79.9,
+      "quality": {
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "fp32",
+        "perplexity": 42.43057865247995,
+        "perplexity_tokens": 177,
+        "greedy_prompts": [
+          "Explique em uma frase o que é batching dinâmico.",
+          "What is 2 + 2? Answer with just the number.",
+          "Liste três cores primárias.",
+          "Translate to English: 'O gato dorme no sofá.'",
+          "Qual é a capital do Brasil?",
+          "Write a one-line Python function that returns the square of x.",
+          "Resuma em uma frase: servir modelos com baixa latência exige fila, lote e métricas.",
+          "Name two benefits of quantizing a language model."
+        ],
+        "greedy_outputs": [
+          "Batching dinâmico é um conceito de aprendizado de máquina (ML) que permite a otimização do",
+          "4",
+          "Claro, aqui estão três cores primárias:\n\n1. Vermelho - Representa energia, coragem e determin",
+          "The translation of \"O gato dorme no sofá\" from Portuguese to English is:\n\n\"The cat sleeps on the",
+          "A capital do Brasil é Brasília.\n\nAlguns fatos sobre Brasília:\n\n1. É o centro político, econ",
+          "```python\ndef square(x):\n    return x ** 2\n```",
+          "\"Servir modelos com baixa latência requer fila, lote e métricas.\"",
+          "Quantization is a process used in machine learning and deep learning to reduce the computational complexity of neural networks. It involves converting"
+        ]
+      },
+      "gpu_sampler": {
+        "samples": 355,
+        "util_mean_pct": 48.2,
+        "util_max_pct": 100.0,
+        "mem_used_max_mib": 7997.0
+      },
+      "sweep": [
+        {
+          "concurrency": 1,
+          "total_requests": 24,
+          "duration_s": 98.61382670000057,
+          "throughput_rps": 0.24337357957938224,
+          "error_rate": 0.0,
+          "p50_ms": 3837.988950000181,
+          "p95_ms": 7221.610424998835,
+          "p99_ms": 8516.413690999307,
+          "tokens_per_s": 5.932231002247442,
+          "ttft_p50_ms": 153.64845000112837,
+          "ttft_p95_ms": 202.6976250001098
+        },
+        {
+          "concurrency": 2,
+          "total_requests": 24,
+          "duration_s": 69.15304919999835,
+          "throughput_rps": 0.34705627991311444,
+          "error_rate": 0.0,
+          "p50_ms": 5642.299749999438,
+          "p95_ms": 6944.749574999604,
+          "p99_ms": 6998.0026849994465,
+          "tokens_per_s": 10.729823320647121,
+          "ttft_p50_ms": 107.40479999822128,
+          "ttft_p95_ms": 157.30640499987203
+        },
+        {
+          "concurrency": 4,
+          "total_requests": 24,
+          "duration_s": 73.12931159999971,
+          "throughput_rps": 0.3281857776984748,
+          "error_rate": 0.0,
+          "p50_ms": 8871.740900000077,
+          "p95_ms": 26080.47432999972,
+          "p99_ms": 27600.009169999248,
+          "tokens_per_s": 7.698691368510055,
+          "ttft_p50_ms": 126.38549999974202,
+          "ttft_p95_ms": 14965.446529999881
+        },
+        {
+          "concurrency": 8,
+          "total_requests": 24,
+          "duration_s": 51.52828439999939,
+          "throughput_rps": 0.46576361467218347,
+          "error_rate": 0.0,
+          "p50_ms": 14893.231250000099,
+          "p95_ms": 21736.12689499896,
+          "p99_ms": 21736.657570000534,
+          "tokens_per_s": 12.808499403485046,
+          "ttft_p50_ms": 110.96019999968121,
+          "ttft_p95_ms": 11133.021199999348
+        },
+        {
+          "concurrency": 16,
+          "total_requests": 24,
+          "duration_s": 17.091382799999337,
+          "throughput_rps": 1.4042163984531977,
+          "error_rate": 0.0,
+          "p50_ms": 9822.757200000524,
+          "p95_ms": 12339.044604999708,
+          "p99_ms": 12342.686544000935,
+          "tokens_per_s": 35.22242799453438,
+          "ttft_p50_ms": 5136.781600000177,
+          "ttft_p95_ms": 7264.117099999567
+        }
+      ],
+      "saturation_point_concurrency": 4,
+      "health": {
+        "status": "ok",
+        "backend": "hf-fp32",
+        "kind": "text",
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "fp32",
+        "bits": 32,
+        "dtype": "float32",
+        "device": "cuda",
+        "parameters": 494032768,
+        "memory_footprint_bytes": 1976131328,
+        "load_seconds": 11.239,
+        "gpu_peak_allocated_bytes": 2059068928,
+        "queue_depth": 0,
+        "max_queue_depth": 256,
+        "batches_executed": 53,
+        "items_processed": 123,
+        "tokens_generated_total": 3217
+      },
+      "quality_vs_reference": {
+        "exact_match": 8,
+        "of": 8,
+        "mean_similarity": 1.0
+      }
+    },
+    {
+      "mode": "fp16",
+      "status": "ok",
+      "gpu_baseline": [
+        94.0,
+        6210
+      ],
+      "gpu_idle": {
+        "util_mean_pct": 94.0,
+        "mem_used_mib": 6210
+      },
+      "startup_seconds": 56.5,
+      "quality": {
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "fp16",
+        "perplexity": 42.38476312924382,
+        "perplexity_tokens": 177,
+        "greedy_prompts": [
+          "Explique em uma frase o que é batching dinâmico.",
+          "What is 2 + 2? Answer with just the number.",
+          "Liste três cores primárias.",
+          "Translate to English: 'O gato dorme no sofá.'",
+          "Qual é a capital do Brasil?",
+          "Write a one-line Python function that returns the square of x.",
+          "Resuma em uma frase: servir modelos com baixa latência exige fila, lote e métricas.",
+          "Name two benefits of quantizing a language model."
+        ],
+        "greedy_outputs": [
+          "Batching dinâmico é um conceito de aprendizado de máquina (ML) que permite a otimização do",
+          "4",
+          "Claro, aqui estão três cores primárias:\n\n1. Vermelho - Representa energia, coragem e determin",
+          "The translation of \"O gato dorme no sofá\" from Portuguese to English is:\n\n\"The cat sleeps on the",
+          "A capital do Brasil é Brasília.\n\nAlguns fatos sobre Brasília:\n\n1. É o centro político, econ",
+          "```python\ndef square(x):\n    return x ** 2\n```",
+          "\"Servir modelos com baixa latência requer fila, lote e métricas.\"",
+          "Quantization is a process used in machine learning and deep learning to reduce the computational complexity of neural networks. It involves reducing"
+        ]
+      },
+      "gpu_sampler": {
+        "samples": 1090,
+        "util_mean_pct": 90.1,
+        "util_max_pct": 100.0,
+        "mem_used_max_mib": 7891.0
+      },
+      "sweep": [
+        {
+          "concurrency": 1,
+          "total_requests": 24,
+          "duration_s": 188.56586760000027,
+          "throughput_rps": 0.12727648065614164,
+          "error_rate": 0.0,
+          "p50_ms": 8202.598500000022,
+          "p95_ms": 12532.624670000403,
+          "p99_ms": 13064.635510000608,
+          "tokens_per_s": 2.847811254681169,
+          "ttft_p50_ms": 195.8032499996989,
+          "ttft_p95_ms": 246.9773350008836
+        },
+        {
+          "concurrency": 2,
+          "total_requests": 24,
+          "duration_s": 129.19505430000027,
+          "throughput_rps": 0.18576562493073662,
+          "error_rate": 0.0,
+          "p50_ms": 9958.1005,
+          "p95_ms": 17877.490214999663,
+          "p99_ms": 18527.9150500005,
+          "tokens_per_s": 5.271099607409652,
+          "ttft_p50_ms": 174.771599999076,
+          "ttft_p95_ms": 4555.3014149990195
+        },
+        {
+          "concurrency": 4,
+          "total_requests": 24,
+          "duration_s": 445.05642420000004,
+          "throughput_rps": 0.053925746703107576,
+          "error_rate": 0.0,
+          "p50_ms": 15620.395049999388,
+          "p95_ms": 342985.4164499998,
+          "p99_ms": 342985.56370200077,
+          "tokens_per_s": 1.271748859748287,
+          "ttft_p50_ms": 148.27190000050905,
+          "ttft_p95_ms": 332237.02190000226
+        },
+        {
+          "concurrency": 8,
+          "total_requests": 24,
+          "duration_s": 32.16344229999959,
+          "throughput_rps": 0.7461887871373863,
+          "error_rate": 0.0,
+          "p50_ms": 7897.130850000394,
+          "p95_ms": 13165.991450001093,
+          "p99_ms": 13166.200591999768,
+          "tokens_per_s": 18.437081282186256,
+          "ttft_p50_ms": 107.78279999976803,
+          "ttft_p95_ms": 8034.180699998615
+        },
+        {
+          "concurrency": 16,
+          "total_requests": 24,
+          "duration_s": 17.755428500000562,
+          "throughput_rps": 1.3516992845314457,
+          "error_rate": 0.0,
+          "p50_ms": 11777.798650000477,
+          "p95_ms": 11882.620055000098,
+          "p99_ms": 11882.869229000717,
+          "tokens_per_s": 35.707389433039026,
+          "ttft_p50_ms": 5964.581900001576,
+          "ttft_p95_ms": 6015.301400000681
+        }
+      ],
+      "saturation_point_concurrency": 4,
+      "health": {
+        "status": "ok",
+        "backend": "hf-fp16",
+        "kind": "text",
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "fp16",
+        "bits": 16,
+        "dtype": "float16",
+        "device": "cuda",
+        "parameters": 494032768,
+        "memory_footprint_bytes": 988065792,
+        "load_seconds": 8.353,
+        "gpu_peak_allocated_bytes": 1079076864,
+        "queue_depth": 0,
+        "max_queue_depth": 256,
+        "batches_executed": 54,
+        "items_processed": 123,
+        "tokens_generated_total": 3076
+      },
+      "quality_vs_reference": {
+        "exact_match": 7,
+        "of": 8,
+        "mean_similarity": 0.9958
+      }
+    },
+    {
+      "mode": "bf16",
+      "status": "ok",
+      "gpu_baseline": [
+        89.5,
+        7012
+      ],
+      "gpu_idle": {
+        "util_mean_pct": 89.5,
+        "mem_used_mib": 7012
+      },
+      "startup_seconds": 61.2,
+      "quality": {
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "bf16",
+        "perplexity": 42.43403048767112,
+        "perplexity_tokens": 177,
+        "greedy_prompts": [
+          "Explique em uma frase o que é batching dinâmico.",
+          "What is 2 + 2? Answer with just the number.",
+          "Liste três cores primárias.",
+          "Translate to English: 'O gato dorme no sofá.'",
+          "Qual é a capital do Brasil?",
+          "Write a one-line Python function that returns the square of x.",
+          "Resuma em uma frase: servir modelos com baixa latência exige fila, lote e métricas.",
+          "Name two benefits of quantizing a language model."
+        ],
+        "greedy_outputs": [
+          "Batching dinâmico é um conceito de aprendizado de máquina (ML) que permite a otimização do",
+          "4",
+          "Claro, aqui estão três cores primárias:\n\n1. Vermelho - Representa energia, coragem e determin",
+          "The translation of \"O gato dorme no sofá\" from Portuguese to English is:\n\n\"The cat sleeps on the",
+          "A capital do Brasil é Brasília.\n\nAlguns fatos sobre Brasília:\n\n1. É o centro político, econ",
+          "```python\ndef square(x):\n    return x ** 2\n```",
+          "\"Servir modelos com baixa latência requer fila, lote e métricas.\"",
+          "Quantization is a process used in machine learning and deep learning to reduce the computational complexity of neural networks. It involves reducing"
+        ]
+      },
+      "gpu_sampler": {
+        "samples": 252,
+        "util_mean_pct": 58.7,
+        "util_max_pct": 83.0,
+        "mem_used_max_mib": 3123.0
+      },
+      "sweep": [
+        {
+          "concurrency": 1,
+          "total_requests": 24,
+          "duration_s": 62.36168490000091,
+          "throughput_rps": 0.3848516928060045,
+          "error_rate": 0.0,
+          "p50_ms": 2916.320450000967,
+          "p95_ms": 3731.273144999068,
+          "p99_ms": 4194.534587000671,
+          "tokens_per_s": 9.52507939694861,
+          "ttft_p50_ms": 132.0282500000758,
+          "ttft_p95_ms": 236.3576600006125
+        },
+        {
+          "concurrency": 2,
+          "total_requests": 24,
+          "duration_s": 46.77920919999997,
+          "throughput_rps": 0.5130484334908342,
+          "error_rate": 0.0,
+          "p50_ms": 3569.6238500004256,
+          "p95_ms": 4982.641029999649,
+          "p99_ms": 6343.579160999924,
+          "tokens_per_s": 13.788176650066168,
+          "ttft_p50_ms": 134.86609999927168,
+          "ttft_p95_ms": 183.93353999872483
+        },
+        {
+          "concurrency": 4,
+          "total_requests": 24,
+          "duration_s": 47.96163129999877,
+          "throughput_rps": 0.5003999936924709,
+          "error_rate": 0.0,
+          "p50_ms": 5839.321899999959,
+          "p95_ms": 11993.52772000102,
+          "p99_ms": 11993.609842999631,
+          "tokens_per_s": 13.281449832587665,
+          "ttft_p50_ms": 251.49980000060168,
+          "ttft_p95_ms": 5693.358939999871
+        },
+        {
+          "concurrency": 8,
+          "total_requests": 24,
+          "duration_s": 20.786999500000093,
+          "throughput_rps": 1.1545677864667236,
+          "error_rate": 0.0,
+          "p50_ms": 5562.546950000069,
+          "p95_ms": 8285.254680000071,
+          "p99_ms": 8287.161637000063,
+          "tokens_per_s": 30.88468828798486,
+          "ttft_p50_ms": 136.54440000027535,
+          "ttft_p95_ms": 4717.159000001084
+        },
+        {
+          "concurrency": 16,
+          "total_requests": 24,
+          "duration_s": 10.712379100001272,
+          "throughput_rps": 2.2403986804385174,
+          "error_rate": 0.0,
+          "p50_ms": 7187.656899999638,
+          "p95_ms": 7223.670390000825,
+          "p99_ms": 7223.962885000074,
+          "tokens_per_s": 68.05210991831996,
+          "ttft_p50_ms": 3555.8679000005213,
+          "ttft_p95_ms": 3807.1743999999853
+        }
+      ],
+      "saturation_point_concurrency": 4,
+      "health": {
+        "status": "ok",
+        "backend": "hf-bf16",
+        "kind": "text",
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "bf16",
+        "bits": 16,
+        "dtype": "bfloat16",
+        "device": "cuda",
+        "parameters": 494032768,
+        "memory_footprint_bytes": 988065792,
+        "load_seconds": 9.783,
+        "gpu_peak_allocated_bytes": 1079076864,
+        "queue_depth": 0,
+        "max_queue_depth": 256,
+        "batches_executed": 57,
+        "items_processed": 123,
+        "tokens_generated_total": 3312
+      },
+      "quality_vs_reference": {
+        "exact_match": 7,
+        "of": 8,
+        "mean_similarity": 0.9958
+      }
+    },
+    {
+      "mode": "int8",
+      "status": "ok",
+      "gpu_baseline": [
+        6.0,
+        765
+      ],
+      "gpu_idle": {
+        "util_mean_pct": 6.0,
+        "mem_used_mib": 765
+      },
+      "startup_seconds": 51.9,
+      "quality": {
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "int8",
+        "perplexity": 42.094752982945344,
+        "perplexity_tokens": 177,
+        "greedy_prompts": [
+          "Explique em uma frase o que é batching dinâmico.",
+          "What is 2 + 2? Answer with just the number.",
+          "Liste três cores primárias.",
+          "Translate to English: 'O gato dorme no sofá.'",
+          "Qual é a capital do Brasil?",
+          "Write a one-line Python function that returns the square of x.",
+          "Resuma em uma frase: servir modelos com baixa latência exige fila, lote e métricas.",
+          "Name two benefits of quantizing a language model."
+        ],
+        "greedy_outputs": [
+          "Batching dinâmico é um conceito de processamento de dados que permite a distribuição de tarefas entre",
+          "4",
+          "Claro! As três cores primárias são:\n\n1. Vermelho: Um colorante mais forte e geralmente",
+          "The translation of \"O gato dorme no sofá\" into English is:\n\n\"The cat sleeps on the sofa.\"\n\n",
+          "A capital do Brasil é Brasília. É uma cidade histórica e moderna que se localiza na região central do",
+          "```python\ndef square(x):\n    return x ** 2\n```",
+          "\"Servir modelos com baixa latência requer fila, lote e métricas.\"",
+          "Quantization is a technique used in deep learning to reduce the computational complexity and memory requirements of neural networks. Here are two"
+        ]
+      },
+      "gpu_sampler": {
+        "samples": 478,
+        "util_mean_pct": 16.7,
+        "util_max_pct": 46.0,
+        "mem_used_max_mib": 1692.0
+      },
+      "sweep": [
+        {
+          "concurrency": 1,
+          "total_requests": 24,
+          "duration_s": 311.35373360000085,
+          "throughput_rps": 0.07708274354863857,
+          "error_rate": 0.0,
+          "p50_ms": 13713.49895000094,
+          "p95_ms": 17553.1598000005,
+          "p99_ms": 18319.49841099946,
+          "tokens_per_s": 2.2578820297788718,
+          "ttft_p50_ms": 542.6103500003592,
+          "ttft_p95_ms": 704.1802399991866
+        },
+        {
+          "concurrency": 2,
+          "total_requests": 24,
+          "duration_s": 180.11397469999974,
+          "throughput_rps": 0.13324896105354803,
+          "error_rate": 0.0,
+          "p50_ms": 15759.396149999702,
+          "p95_ms": 17613.23261500056,
+          "p99_ms": 17743.382731999627,
+          "tokens_per_s": 3.2979117860753138,
+          "ttft_p50_ms": 585.6864500001393,
+          "ttft_p95_ms": 707.1409549994313
+        },
+        {
+          "concurrency": 4,
+          "total_requests": 24,
+          "duration_s": 87.29205929999989,
+          "throughput_rps": 0.27493909746725415,
+          "error_rate": 0.0,
+          "p50_ms": 14788.118149999718,
+          "p95_ms": 15388.233535001018,
+          "p99_ms": 15388.57754400049,
+          "tokens_per_s": 7.698294729083116,
+          "ttft_p50_ms": 598.153299999467,
+          "ttft_p95_ms": 661.197199999151
+        },
+        {
+          "concurrency": 8,
+          "total_requests": 24,
+          "duration_s": 81.78305449999971,
+          "throughput_rps": 0.2934593253667248,
+          "error_rate": 0.0,
+          "p50_ms": 33278.82524999859,
+          "p95_ms": 33701.04063999988,
+          "p99_ms": 33701.85674299986,
+          "tokens_per_s": 7.8011270659987675,
+          "ttft_p50_ms": 17082.515300000523,
+          "ttft_p95_ms": 17219.51049999916
+        },
+        {
+          "concurrency": 16,
+          "total_requests": 24,
+          "duration_s": 68.75383809999948,
+          "throughput_rps": 0.34907142151239673,
+          "error_rate": 0.0,
+          "p50_ms": 34891.339349999726,
+          "p95_ms": 49367.33039999986,
+          "p99_ms": 51906.10096300022,
+          "tokens_per_s": 9.584919449027893,
+          "ttft_p50_ms": 17399.06829999927,
+          "ttft_p95_ms": 32877.29659999819
+        }
+      ],
+      "saturation_point_concurrency": 8,
+      "health": {
+        "status": "ok",
+        "backend": "hf-int8",
+        "kind": "text",
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "int8",
+        "bits": 8,
+        "dtype": "float16",
+        "device": "cuda",
+        "parameters": 494032768,
+        "memory_footprint_bytes": 630239232,
+        "load_seconds": 13.41,
+        "gpu_peak_allocated_bytes": 714331136,
+        "queue_depth": 0,
+        "max_queue_depth": 256,
+        "batches_executed": 54,
+        "items_processed": 123,
+        "tokens_generated_total": 3331
+      },
+      "attempts": 1,
+      "quality_vs_reference": {
+        "exact_match": 3,
+        "of": 8,
+        "mean_similarity": 0.7859
+      }
+    },
+    {
+      "mode": "nf4",
+      "status": "ok",
+      "gpu_baseline": [
+        10.0,
+        741
+      ],
+      "gpu_idle": {
+        "util_mean_pct": 10.0,
+        "mem_used_mib": 741
+      },
+      "startup_seconds": 61.0,
+      "quality": {
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "nf4",
+        "perplexity": 50.73346009927087,
+        "perplexity_tokens": 177,
+        "greedy_prompts": [
+          "Explique em uma frase o que é batching dinâmico.",
+          "What is 2 + 2? Answer with just the number.",
+          "Liste três cores primárias.",
+          "Translate to English: 'O gato dorme no sofá.'",
+          "Qual é a capital do Brasil?",
+          "Write a one-line Python function that returns the square of x.",
+          "Resuma em uma frase: servir modelos com baixa latência exige fila, lote e métricas.",
+          "Name two benefits of quantizing a language model."
+        ],
+        "greedy_outputs": [
+          "Batching dinâmico é um método de processamento de dados que permite executar várias transações simultaneamente para",
+          "4",
+          "Claro! Aqui está uma lista de três cores primárias:\n\n1. Branco\n2. Verde\n",
+          "The translation of \"O gato dorme no sofá\" from Portuguese to English is:\n\n\"The cat sleeps on the",
+          "A capital do Brasil é Brasília (DF). Aqui estão algumas informações importantes sobre ela:\n\n1. Localização:",
+          "def square(x):\n    return x ** 2",
+          "Servir modelos com baixa latência requer atenção aos processadores, memória e métricas para garantir que",
+          "Two benefits of quantizing a language model include:\n\n1. Improved computational efficiency: By quantizing the model, we can"
+        ]
+      },
+      "gpu_sampler": {
+        "samples": 147,
+        "util_mean_pct": 16.5,
+        "util_max_pct": 34.0,
+        "mem_used_max_mib": 1506.0
+      },
+      "sweep": [
+        {
+          "concurrency": 1,
+          "total_requests": 24,
+          "duration_s": 77.22855789999994,
+          "throughput_rps": 0.310765870198905,
+          "error_rate": 0.0,
+          "p50_ms": 4015.9374499999103,
+          "p95_ms": 4525.011410000661,
+          "p99_ms": 5152.528065999377,
+          "tokens_per_s": 7.367740839299039,
+          "ttft_p50_ms": 178.05275000137044,
+          "ttft_p95_ms": 275.18951500060206
+        },
+        {
+          "concurrency": 2,
+          "total_requests": 24,
+          "duration_s": 46.56517469999926,
+          "throughput_rps": 0.515406634993262,
+          "error_rate": 0.0,
+          "p50_ms": 3805.906199999299,
+          "p95_ms": 4800.3934300004385,
+          "p99_ms": 4909.893698000415,
+          "tokens_per_s": 14.689089097307969,
+          "ttft_p50_ms": 196.58204999996087,
+          "ttft_p95_ms": 284.9680100003752
+        },
+        {
+          "concurrency": 4,
+          "total_requests": 24,
+          "duration_s": 37.54023469999993,
+          "throughput_rps": 0.6393140637450528,
+          "error_rate": 0.0,
+          "p50_ms": 4637.337700000899,
+          "p95_ms": 10142.992995001257,
+          "p99_ms": 10214.554534001345,
+          "tokens_per_s": 16.46233714143511,
+          "ttft_p50_ms": 181.33300000226882,
+          "ttft_p95_ms": 5144.645299998956
+        },
+        {
+          "concurrency": 8,
+          "total_requests": 24,
+          "duration_s": 17.227412799999,
+          "throughput_rps": 1.3931285143408993,
+          "error_rate": 0.0,
+          "p50_ms": 4296.260049999546,
+          "p95_ms": 7937.714369999594,
+          "p99_ms": 7938.382659999988,
+          "tokens_per_s": 32.27414391556417,
+          "ttft_p50_ms": 184.64960000164865,
+          "ttft_p95_ms": 4203.968800000439
+        },
+        {
+          "concurrency": 16,
+          "total_requests": 24,
+          "duration_s": 13.803836399998545,
+          "throughput_rps": 1.7386470908915241,
+          "error_rate": 0.0,
+          "p50_ms": 8809.774199999083,
+          "p95_ms": 9529.920789998869,
+          "p99_ms": 9531.02588899972,
+          "tokens_per_s": 45.059937105605336,
+          "ttft_p50_ms": 4263.858199999959,
+          "ttft_p95_ms": 4700.939500002278
+        }
+      ],
+      "saturation_point_concurrency": null,
+      "health": {
+        "status": "ok",
+        "backend": "hf-nf4",
+        "kind": "text",
+        "model": "Qwen/Qwen2.5-0.5B-Instruct",
+        "quant": "nf4",
+        "bits": 4,
+        "dtype": "float16",
+        "device": "cuda",
+        "parameters": 315119488,
+        "memory_footprint_bytes": 451325952,
+        "load_seconds": 14.16,
+        "gpu_peak_allocated_bytes": 556759040,
+        "queue_depth": 0,
+        "max_queue_depth": 256,
+        "batches_executed": 54,
+        "items_processed": 123,
+        "tokens_generated_total": 3114
+      },
+      "attempts": 1,
+      "quality_vs_reference": {
+        "exact_match": 2,
+        "of": 8,
+        "mean_similarity": 0.6894
+      }
+    }
+  ]
+}

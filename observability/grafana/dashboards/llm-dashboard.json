@@ -1,0 +1,216 @@
+{
+  "title": "RealTime-ML-Inference-Lab — LLM (V0.3)",
+  "uid": "rtml-llm",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Latência de /generate (P50 / P95 / P99)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum(rate(rtml_llm_request_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rtml_llm_request_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(rtml_llm_request_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "title": "TTFT visto pelo cliente (P50 / P95)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum(rate(rtml_llm_ttft_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rtml_llm_ttft_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "Requisições/s por desfecho",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(rtml_llm_requests_total[1m])) by (outcome)",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Tokens gerados por segundo",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(rtml_llm_tokens_generated_total[1m]))",
+          "legendFormat": "tokens/s"
+        },
+        {
+          "expr": "rtml_llm_tokens_per_second",
+          "legendFormat": "último lote"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Tamanho do lote de geração (P50 / P95)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum(rate(rtml_llm_batch_size_bucket[1m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rtml_llm_batch_size_bucket[1m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Profundidade da fila (em voo)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "rtml_queue_depth",
+          "legendFormat": "em voo"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "VRAM: pesos × alocada × pico (bytes)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "rtml_llm_model_memory_bytes",
+          "legendFormat": "pesos do modelo"
+        },
+        {
+          "expr": "rtml_gpu_memory_allocated_bytes",
+          "legendFormat": "alocada agora"
+        },
+        {
+          "expr": "rtml_gpu_memory_peak_allocated_bytes",
+          "legendFormat": "pico alocado"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "title": "Utilização da GPU e cancelamentos",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "rtml_gpu_utilization_percent",
+          "legendFormat": "GPU %"
+        },
+        {
+          "expr": "sum(rate(rtml_cancellations_total[1m])) by (reason)",
+          "legendFormat": "cancel/s {{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Backend ativo (quantização / modelo)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "targets": [
+        {
+          "expr": "rtml_llm_backend_info",
+          "legendFormat": "{{backend}} · {{quant}} · {{model}}"
+        }
+      ]
+    }
+  ]
+}

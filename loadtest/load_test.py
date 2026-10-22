@@ -47,6 +47,9 @@ class RequestResult:
     status_code: int
     cached: bool = False
     error: str | None = None
+    # Cenário LLM (V0.3): preenchidos a partir da resposta de /generate.
+    completion_tokens: int | None = None
+    ttft_ms: float | None = None
 
 
 @dataclass
@@ -76,6 +79,22 @@ class LoadTestReport:
 
     def throughput_rps(self) -> float:
         return self.total_requests / self.duration_s if self.duration_s > 0 else float("nan")
+
+    def tokens_per_second(self) -> float | None:
+        """Tokens gerados por segundo de parede (só cenário LLM)."""
+        toks = [r.completion_tokens for r in self.successes if r.completion_tokens is not None]
+        if not toks or self.duration_s <= 0:
+            return None
+        return sum(toks) / self.duration_s
+
+    def ttft_percentile(self, p: float) -> float | None:
+        vals = sorted(r.ttft_ms for r in self.successes if r.ttft_ms is not None)
+        if not vals:
+            return None
+        k = (len(vals) - 1) * (p / 100)
+        f = int(k)
+        c = min(f + 1, len(vals) - 1)
+        return vals[f] if f == c else vals[f] + (vals[c] - vals[f]) * (k - f)
 
     def cache_hit_rate(self) -> float:
         successes = self.successes
@@ -123,13 +142,57 @@ async def _one_request(
         return RequestResult(latency_ms=latency_ms, status_code=-1, error=str(exc))
 
 
+# Prompts curtos e variados do cenário LLM (mesmo espírito do quality_set do serviço).
+LLM_PROMPTS = (
+    "Explique em uma frase o que é batching dinâmico.",
+    "What is 2 + 2? Answer with just the number.",
+    "Liste três cores primárias.",
+    "Translate to English: 'O gato dorme no sofá.'",
+    "Qual é a capital do Brasil?",
+    "Write a one-line Python function that returns the square of x.",
+    "Resuma em uma frase: servir modelos com baixa latência exige fila, lote e métricas.",
+    "Name two benefits of quantizing a language model.",
+    "Dê um exemplo de contrapressão em um sistema de filas.",
+    "Why does the p99 latency matter more than the mean?",
+)
+
+
+async def _one_llm_request(
+    client: httpx.AsyncClient, prompt: str, max_new_tokens: int
+) -> RequestResult:
+    start = time.perf_counter()
+    try:
+        resp = await client.post(
+            "/generate", json={"prompt": prompt, "max_new_tokens": max_new_tokens}
+        )
+        latency_ms = (time.perf_counter() - start) * 1000
+        tokens = ttft = None
+        if resp.status_code == 200:
+            body = resp.json()
+            tokens = body.get("completion_tokens")
+            ttft = body.get("ttft_ms")
+        return RequestResult(
+            latency_ms=latency_ms,
+            status_code=resp.status_code,
+            completion_tokens=tokens,
+            ttft_ms=ttft,
+        )
+    except httpx.HTTPError as exc:
+        latency_ms = (time.perf_counter() - start) * 1000
+        return RequestResult(latency_ms=latency_ms, status_code=-1, error=str(exc))
+
+
 async def run_load_test(
     base_url: str,
     total_requests: int,
     concurrency: int,
     input_dim: int,
     cache_friendly: bool,
+    scenario: str = "cnn",
+    max_new_tokens: int = 32,
 ) -> LoadTestReport:
+    if scenario == "llm":
+        return await _run_llm_load_test(base_url, total_requests, concurrency, max_new_tokens)
     if cache_friendly:
         pool = [_random_input(input_dim) for _ in range(max(1, concurrency // 4))]
         inputs = [random.choice(pool) for _ in range(total_requests)]
@@ -152,6 +215,26 @@ async def run_load_test(
     return LoadTestReport(total_requests=total_requests, duration_s=duration_s, results=results)
 
 
+async def _run_llm_load_test(
+    base_url: str, total_requests: int, concurrency: int, max_new_tokens: int
+) -> LoadTestReport:
+    prompts = [random.choice(LLM_PROMPTS) for _ in range(total_requests)]
+    semaphore = asyncio.Semaphore(concurrency)
+    results: list[RequestResult] = []
+
+    # Geração leva segundos: timeout bem maior que o do cenário CNN.
+    async with httpx.AsyncClient(base_url=base_url, timeout=600.0) as client:
+        async def bound(prompt: str) -> None:
+            async with semaphore:
+                results.append(await _one_llm_request(client, prompt, max_new_tokens))
+
+        start = time.perf_counter()
+        await asyncio.gather(*(bound(p) for p in prompts))
+        duration_s = time.perf_counter() - start
+
+    return LoadTestReport(total_requests=total_requests, duration_s=duration_s, results=results)
+
+
 @dataclass
 class SweepLevelResult:
     concurrency: int
@@ -162,6 +245,10 @@ class SweepLevelResult:
     p50_ms: float
     p95_ms: float
     p99_ms: float
+    # Cenário LLM (None no cenário CNN)
+    tokens_per_s: float | None = None
+    ttft_p50_ms: float | None = None
+    ttft_p95_ms: float | None = None
 
     @classmethod
     def from_report(cls, concurrency: int, report: LoadTestReport) -> "SweepLevelResult":
@@ -177,6 +264,9 @@ class SweepLevelResult:
             p50_ms=report.percentile(50),
             p95_ms=report.percentile(95),
             p99_ms=report.percentile(99),
+            tokens_per_s=report.tokens_per_second(),
+            ttft_p50_ms=report.ttft_percentile(50),
+            ttft_p95_ms=report.ttft_percentile(95),
         )
 
 
@@ -216,6 +306,8 @@ async def run_concurrency_sweep(
     requests_per_level: int,
     input_dim: int,
     cache_friendly: bool,
+    scenario: str = "cnn",
+    max_new_tokens: int = 32,
 ) -> list[SweepLevelResult]:
     """Run the same real load test at each concurrency level, in sequence,
     against the same running service instance. Sequential (not parallel)
@@ -229,6 +321,8 @@ async def run_concurrency_sweep(
             concurrency=concurrency,
             input_dim=input_dim,
             cache_friendly=cache_friendly,
+            scenario=scenario,
+            max_new_tokens=max_new_tokens,
         )
         results.append(SweepLevelResult.from_report(concurrency, report))
         # Brief pause between levels so one level's tail requests don't
@@ -263,6 +357,15 @@ def _write_sweep_report(
                 "p50_ms": lvl.p50_ms,
                 "p95_ms": lvl.p95_ms,
                 "p99_ms": lvl.p99_ms,
+                **(
+                    {
+                        "tokens_per_s": lvl.tokens_per_s,
+                        "ttft_p50_ms": lvl.ttft_p50_ms,
+                        "ttft_p95_ms": lvl.ttft_p95_ms,
+                    }
+                    if lvl.tokens_per_s is not None
+                    else {}
+                ),
             }
             for lvl in levels
         ],
@@ -281,15 +384,35 @@ def _write_sweep_report(
         f"- Requests per level: {requests_per_level}",
         f"- Input dim: {input_dim}",
         "",
-        "| Concurrency | Requests | Duration (s) | Throughput (req/s) | Error rate | P50 (ms) | P95 (ms) | P99 (ms) |",
-        "|---|---|---|---|---|---|---|---|",
     ]
+    is_llm = any(lvl.tokens_per_s is not None for lvl in levels)
+    if is_llm:
+        md_lines += [
+            "| Concurrency | Requests | Duration (s) | Throughput (req/s) | Tokens/s | Error rate | "
+            "P50 (ms) | P95 (ms) | P99 (ms) | TTFT P50 (ms) | TTFT P95 (ms) |",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
+        ]
+    else:
+        md_lines += [
+            "| Concurrency | Requests | Duration (s) | Throughput (req/s) | Error rate | P50 (ms) | P95 (ms) | P99 (ms) |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
     for lvl in levels:
-        md_lines.append(
-            f"| {lvl.concurrency} | {lvl.total_requests} | {lvl.duration_s:.2f} | "
-            f"{lvl.throughput_rps:.2f} | {lvl.error_rate * 100:.1f}% | "
-            f"{lvl.p50_ms:.1f} | {lvl.p95_ms:.1f} | {lvl.p99_ms:.1f} |"
-        )
+        if is_llm:
+            ttft50 = f"{lvl.ttft_p50_ms:.0f}" if lvl.ttft_p50_ms is not None else "n/d"
+            ttft95 = f"{lvl.ttft_p95_ms:.0f}" if lvl.ttft_p95_ms is not None else "n/d"
+            tps = f"{lvl.tokens_per_s:.1f}" if lvl.tokens_per_s is not None else "n/d"
+            md_lines.append(
+                f"| {lvl.concurrency} | {lvl.total_requests} | {lvl.duration_s:.2f} | "
+                f"{lvl.throughput_rps:.2f} | {tps} | {lvl.error_rate * 100:.1f}% | "
+                f"{lvl.p50_ms:.0f} | {lvl.p95_ms:.0f} | {lvl.p99_ms:.0f} | {ttft50} | {ttft95} |"
+            )
+        else:
+            md_lines.append(
+                f"| {lvl.concurrency} | {lvl.total_requests} | {lvl.duration_s:.2f} | "
+                f"{lvl.throughput_rps:.2f} | {lvl.error_rate * 100:.1f}% | "
+                f"{lvl.p50_ms:.1f} | {lvl.p95_ms:.1f} | {lvl.p99_ms:.1f} |"
+            )
     md_lines.append("")
     if saturation_point is not None:
         md_lines.append(
@@ -334,6 +457,18 @@ def main() -> None:
         help="Requests to send at each concurrency level during a --sweep run",
     )
     parser.add_argument(
+        "--scenario",
+        choices=["cnn", "llm"],
+        default="cnn",
+        help="cnn = POST /infer (TinyCNN, padrão); llm = POST /generate (inference_service.llm_app)",
+    )
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=32,
+        help="Tokens a gerar por requisição no cenário llm",
+    )
+    parser.add_argument(
         "--report-dir",
         type=str,
         default=str(Path(__file__).parent / "reports"),
@@ -351,6 +486,8 @@ def main() -> None:
                 requests_per_level=args.requests_per_level,
                 input_dim=args.input_dim,
                 cache_friendly=args.cache_friendly,
+                scenario=args.scenario,
+                max_new_tokens=args.max_new_tokens,
             )
         )
         for lvl in sweep_results:
@@ -383,9 +520,15 @@ def main() -> None:
             concurrency=args.concurrency,
             input_dim=args.input_dim,
             cache_friendly=args.cache_friendly,
+            scenario=args.scenario,
+            max_new_tokens=args.max_new_tokens,
         )
     )
     print(report.summary())
+    tps = report.tokens_per_second()
+    if tps is not None:
+        print(f"Tokens/s:            {tps:.1f}")
+        print(f"TTFT P50/P95:        {report.ttft_percentile(50)} / {report.ttft_percentile(95)} ms")
 
     if report.errors:
         sample = report.errors[0]
