@@ -48,5 +48,29 @@ class Settings:
     # Request timeout (seconds) while waiting for a batched result
     REQUEST_TIMEOUT_S: float = _env_float("RTML_REQUEST_TIMEOUT_S", 5.0)
 
+    # --- V0.3: backends de geração de texto (llm_app.py) -------------------
+    # tinycnn | hf | vllm. O app histórico (app.py) ignora este valor e usa
+    # sempre o TinyCNN; ele só vale para `inference_service.llm_app`.
+    BACKEND: str = os.getenv("RTML_BACKEND", "hf").strip().lower()
+
+    # HuggingFaceBackend
+    HF_MODEL: str = os.getenv("RTML_HF_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
+    # fp32 | fp16 | bf16 | int8 | nf4
+    HF_QUANT: str = os.getenv("RTML_HF_QUANT", "fp16").strip().lower()
+    HF_LOCAL_ONLY: bool = _env_bool("RTML_HF_LOCAL_ONLY", False)
+    HF_CHAT_TEMPLATE: bool = _env_bool("RTML_HF_CHAT_TEMPLATE", True)
+
+    # VLLMBackend (servidor OpenAI-compatible externo)
+    VLLM_BASE_URL: str = os.getenv("RTML_VLLM_BASE_URL", "http://127.0.0.1:8001")
+    VLLM_MODEL: str = os.getenv("RTML_VLLM_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
+
+    # Batching/admissão do caminho LLM (valores próprios: geração é bem mais
+    # lenta que o forward do TinyCNN)
+    LLM_MAX_BATCH_SIZE: int = _env_int("RTML_LLM_MAX_BATCH_SIZE", 8)
+    LLM_MAX_BATCH_WAIT_MS: float = _env_float("RTML_LLM_MAX_BATCH_WAIT_MS", 20.0)
+    LLM_MAX_QUEUE_DEPTH: int = _env_int("RTML_LLM_MAX_QUEUE_DEPTH", 64)
+    LLM_REQUEST_TIMEOUT_S: float = _env_float("RTML_LLM_REQUEST_TIMEOUT_S", 120.0)
+    LLM_MAX_NEW_TOKENS_CAP: int = _env_int("RTML_LLM_MAX_NEW_TOKENS_CAP", 128)
+
 
 settings = Settings()

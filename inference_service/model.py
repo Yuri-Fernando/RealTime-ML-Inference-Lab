@@ -80,6 +80,22 @@ class ModelBackend:
             self.forward_pass_count = 0
             self.total_items_processed = 0
 
+    # V0.3: identificação para a interface plugável (backends/base.py).
+    name = "tinycnn"
+    kind = "tensor"
+
+    def describe(self) -> dict:
+        return {
+            "backend": self.name,
+            "kind": self.kind,
+            "device": str(self.device),
+            "num_classes": settings.NUM_CLASSES,
+        }
+
+
+# Nome da V0.3 para o mesmo backend: o TinyCNN é um backend entre vários.
+TinyCNNBackend = ModelBackend
+
 
 # Module-level singleton used by the FastAPI app (one model instance per process).
 model_backend = ModelBackend()
